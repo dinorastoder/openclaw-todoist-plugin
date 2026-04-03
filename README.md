@@ -24,6 +24,13 @@ td auth login
 openclaw plugins install openclaw-todoist-plugin
 ```
 
+The package is also publishable on npm for standalone distribution:
+
+```bash
+npm install openclaw-todoist-plugin
+openclaw plugins install -l ./node_modules/openclaw-todoist-plugin
+```
+
 Or for local development:
 
 ```bash
@@ -98,6 +105,12 @@ npm run build       # compile TypeScript
 npm run type-check  # type check without emitting
 npm test            # run tests
 ```
+
+## Publishing
+
+- **ClawHub:** push a release tag (for example `2026.4.3` or `v2026.4.3`) or run the existing workflow manually.
+- **npm:** add an `NPM_TOKEN` repository secret, then push the same release tag or run the **Publish to npm** workflow manually.
+- Tags containing `-beta` publish to the npm `beta` dist-tag; all other tags publish to `latest`.
 
 ## License
 

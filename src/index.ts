@@ -1,4 +1,5 @@
 import { runTd, checkTdAvailable } from './todoist.js';
+import { createRequire } from 'node:module';
 
 // ---------------------------------------------------------------------------
 // Lightweight plugin API typings
@@ -56,7 +57,8 @@ interface PluginApi {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const VERSION = '1.0.0';
+const require = createRequire(import.meta.url);
+const { version: VERSION } = require('../package.json') as { version: string };
 
 function getEnv(api: PluginApi): Record<string, string> {
   const token = api.pluginConfig?.['apiToken'] as string | undefined;

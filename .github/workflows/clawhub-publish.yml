@@ -10,6 +10,7 @@ on:
   push:
     tags:
       - "[0-9][0-9][0-9][0-9].[0-9]*"
+      - "v[0-9][0-9][0-9][0-9].[0-9]*"
 
 permissions:
   contents: read
@@ -69,6 +70,9 @@ jobs:
           set -euo pipefail
           npm version "${RAW_VERSION}" --no-git-tag-version --allow-same-version
           echo "package.json version set to $(node -p "require('./package.json').version")"
+
+      - name: Sync plugin manifest version
+        run: npm run sync-version
 
       - name: Type check
         run: npm run type-check
