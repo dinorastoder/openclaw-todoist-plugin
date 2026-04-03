@@ -74,6 +74,7 @@ const rawCommandParameters = {
 export function registerTodoistTools(api: OpenClawPluginApi): void {
   api.registerTool({
     name: 'todoist_today',
+    label: 'Todoist Today',
     description: 'List Todoist tasks due today and overdue.',
     parameters: todayParameters,
     async execute(_toolCallId, params) {
@@ -96,6 +97,7 @@ export function registerTodoistTools(api: OpenClawPluginApi): void {
 
   api.registerTool({
     name: 'todoist_inbox',
+    label: 'Todoist Inbox',
     description: 'List Todoist inbox tasks.',
     parameters: noParameters,
     async execute() {
@@ -109,6 +111,7 @@ export function registerTodoistTools(api: OpenClawPluginApi): void {
 
   api.registerTool({
     name: 'todoist_add_task',
+    label: 'Todoist Add Task',
     description: 'Add a Todoist task using td quick-add syntax.',
     parameters: addTaskParameters,
     async execute(_toolCallId, params) {
@@ -123,6 +126,7 @@ export function registerTodoistTools(api: OpenClawPluginApi): void {
 
   api.registerTool({
     name: 'todoist_complete_task',
+    label: 'Todoist Complete Task',
     description: 'Complete a Todoist task by name, id, or URL.',
     parameters: completeTaskParameters,
     async execute(_toolCallId, params) {
@@ -137,6 +141,7 @@ export function registerTodoistTools(api: OpenClawPluginApi): void {
 
   api.registerTool({
     name: 'todoist_list_projects',
+    label: 'Todoist List Projects',
     description: 'List Todoist projects.',
     parameters: noParameters,
     async execute() {
@@ -150,6 +155,7 @@ export function registerTodoistTools(api: OpenClawPluginApi): void {
 
   api.registerTool({
     name: 'todoist_run',
+    label: 'Todoist Raw Command',
     description: 'Run a raw Todoist `td` command when a dedicated tool does not fit.',
     parameters: rawCommandParameters,
     async execute(_toolCallId, params) {

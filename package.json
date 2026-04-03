@@ -26,7 +26,7 @@
   "files": [
     "dist/",
     "openclaw.plugin.json",
-    "SKILL.md",
+    "skills/",
     "README.md"
   ],
   "scripts": {
@@ -47,7 +47,7 @@
     "node": ">=18"
   },
   "peerDependencies": {
-    "openclaw": ">=2026.3.0"
+    "openclaw": ">=2026.4.0"
   },
   "peerDependenciesMeta": {
     "openclaw": {
@@ -62,6 +62,9 @@
     "type": "extension",
     "extensions": [
       "./dist/index.js"
-    ]
+    ],
+    "install": {
+      "npmSpec": "openclaw-todoist-plugin"
+    }
   }
 }
