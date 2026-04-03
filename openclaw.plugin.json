@@ -3,6 +3,19 @@
   "name": "Todoist",
   "description": "Todoist integration for OpenClaw via the td CLI. Enables your AI assistant to manage tasks, projects, and labels in Todoist.",
   "version": "1.0.0",
+  "skills": [
+    "./skills"
+  ],
+  "contracts": {
+    "tools": [
+      "todoist_today",
+      "todoist_inbox",
+      "todoist_add_task",
+      "todoist_complete_task",
+      "todoist_list_projects",
+      "todoist_run"
+    ]
+  },
   "configSchema": {
     "type": "object",
     "additionalProperties": false,

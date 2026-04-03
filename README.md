@@ -1,168 +1,168 @@
 # openclaw-todoist-plugin
 
-Todoist plugin for [OpenClaw](https://github.com/openclaw/openclaw) — enables the [`td` CLI](https://github.com/Doist/todoist-cli) as a tool in your AI assistant and adds an OpenClaw skill for Todoist task management.
+Todoist plugin for [OpenClaw](https://github.com/openclaw/openclaw) that exposes the [`td` CLI](https://github.com/Doist/todoist-cli) as native agent tools.
 
-## Features
+## What it provides
 
-- Exposes Todoist as native OpenClaw tools (`todoist.today`, `todoist.add`, `todoist.complete`, `todoist.inbox`, `todoist.projects`, `todoist.run`)
-- Teaches your AI assistant to manage tasks, projects, and labels via the `SKILL.md` agent skill
-- Supports authentication via API token (config, env var, or `td auth login`)
-- Warns on startup if `td` is not installed
+- Current OpenClaw native plugin entrypoint via `definePluginEntry(...)`
+- Native Todoist tools backed by the `td` CLI
+- `openclaw todoist status` for quick prerequisite checks
+- Bundled skill docs at `skills/todoist/SKILL.md`
+- npm-installable package: `openclaw-todoist-plugin`
 
 ## Prerequisites
 
-Install and authenticate the Todoist CLI:
+Install the Todoist CLI:
 
 ```bash
 npm install -g @doist/todoist-cli
+```
+
+Authentication is resolved in this order:
+
+1. `plugins.entries.todoist.config.apiToken`
+2. `TODOIST_API_TOKEN`
+3. Credentials stored by `td auth login`
+
+If you do not want to use a config token or environment variable, run:
+
+```bash
 td auth login
 ```
 
-## Installation
+## Install
 
 ```bash
 openclaw plugins install openclaw-todoist-plugin
 ```
 
-If OpenClaw logs this after installation:
-
-```text
-[plugins] plugins.allow is empty; discovered non-bundled plugins may auto-load: todoist ...
-```
-
-that is a trust warning from OpenClaw, not a plugin failure.
-
-Update your OpenClaw gateway config in the same JSON file where you set plugin config such as `plugins.todoist.apiToken`, and add `todoist` to `plugins.allow`:
-
-```json
-{
-  "plugins": {
-    "allow": ["todoist"]
-  }
-}
-```
-
-For example:
-
-```json
-{
-  "plugins": {
-    "allow": ["todoist"],
-    "todoist": {
-      "apiToken": "your-api-token-here"
-    }
-  }
-}
-```
-
-The plugin id is `todoist`, which matches `openclaw.plugin.json`.
-
-OpenClaw documentation:
-
-- Plugin CLI docs: https://docs.openclaw.ai/cli/plugins
-- Gateway configuration docs: https://docs.openclaw.ai/gateway/configuration
-
-The package is also publishable on npm for standalone distribution:
-
-```bash
-npm install openclaw-todoist-plugin
-openclaw plugins install -l ./node_modules/openclaw-todoist-plugin
-```
-
-Or for local development:
+For local development:
 
 ```bash
 openclaw plugins install -l .
 ```
 
-## Configuration
+## OpenClaw config
 
-The plugin reads your Todoist API token from the first available source:
-
-1. `apiToken` in the plugin config (set in the OpenClaw UI or config file)
-2. `TODOIST_API_TOKEN` environment variable
-3. Token stored by `td auth login`
-
-### Optional: set API token in OpenClaw config
+Enable the plugin under `plugins.entries.todoist`:
 
 ```json
 {
   "plugins": {
-    "todoist": {
-      "apiToken": "your-api-token-here"
+    "allow": ["todoist"],
+    "entries": {
+      "todoist": {
+        "enabled": true,
+        "config": {
+          "apiToken": "your-api-token-here"
+        }
+      }
     }
   }
 }
 ```
 
-Get your API token from [Todoist Settings → Integrations → Developer](https://todoist.com/app/settings/integrations/developer).
+The plugin id stays `todoist`.
 
-## Agent Skill
-
-The included `SKILL.md` teaches your AI assistant the available Todoist tools. Install it via the OpenClaw skill registry:
-
-```bash
-openclaw skill install todoist
-```
-
-Or it is bundled automatically when the plugin is installed.
-
-## Available Tools
+## Tools
 
 | Tool | Description |
-|------|-------------|
-| `todoist.today` | Tasks due today and overdue |
-| `todoist.inbox` | Inbox tasks |
-| `todoist.add` | Quick-add a task (natural language) |
-| `todoist.complete` | Complete a task by name or reference |
-| `todoist.projects` | List all projects |
-| `todoist.run` | Run any `td` command directly |
+| --- | --- |
+| `todoist_today` | List tasks due today and overdue |
+| `todoist_inbox` | List inbox tasks |
+| `todoist_add_task` | Add a task with Todoist quick-add syntax |
+| `todoist_complete_task` | Complete a task by name, `id:...`, or URL |
+| `todoist_list_projects` | List projects |
+| `todoist_run` | Run a raw `td` command |
 
-## OpenClaw CLI Commands
+Notes:
+
+- `todoist_run` expects only the arguments after `td`
+- `todoist_run` blocks interactive `td auth login`; run that in a terminal instead
+- JSON-returning commands are parsed and surfaced with normalized errors when malformed
+
+## CLI command
 
 ```bash
-openclaw todoist status    # Check td CLI availability and auth status
+openclaw todoist status
 ```
 
-## Usage Examples
+The status command reports:
 
-After installation, ask your AI assistant:
+- whether `td` is installed
+- the detected `td` version
+- whether a plugin config token is present
+- whether authentication appears usable
 
-- *"Show me my tasks for today"*
-- *"Add a task: buy groceries tomorrow"*
-- *"What's in my inbox?"*
-- *"Complete the task 'Buy milk'"*
-- *"List my projects"*
-- *"Show tasks in my Work project"*
+## Bundled skill
+
+The manifest declares `./skills`, so OpenClaw can discover the bundled skill docs from:
+
+```text
+skills/todoist/SKILL.md
+```
+
+## Troubleshooting
+
+### Plugin loads, but tools say `td` is missing
+
+Install the CLI and ensure it is on `PATH` for the OpenClaw process:
+
+```bash
+npm install -g @doist/todoist-cli
+openclaw todoist status
+```
+
+### `td` is installed, but authentication is unavailable
+
+Use one of:
+
+- `plugins.entries.todoist.config.apiToken`
+- `TODOIST_API_TOKEN`
+- `td auth login`
+
+### Plugin config is missing
+
+Add the `plugins.entries.todoist` block shown above and keep `todoist` in `plugins.allow`.
+
+### Todoist command failed
+
+Run the same command directly with `td` to compare output, for example:
+
+```bash
+td today --json
+td project list --json
+td auth status
+```
+
+The plugin returns normalized error text and includes `td stderr` when it helps diagnose the failure.
 
 ## Development
 
 ```bash
-npm install
-npm run build       # compile TypeScript
-npm run type-check  # type check without emitting
-npm test            # run tests
+npm ci
+npm run type-check
+npm run build
+npm test
 ```
 
-## Publishing
+Optional package-content check:
 
-- **ClawHub:** push a release tag (for example `2026.4.3` or `v2026.4.3`) or run the existing workflow manually.
-- **npm:** configure npm Trusted Publisher once, then push the same release tag or run the **Publish to npm** workflow manually.
-- Tags containing `-beta` publish to the npm `beta` dist-tag; all other tags publish to `latest`.
+```bash
+npm pack --dry-run
+```
 
-### npm Trusted Publisher setup (manual, one-time)
+## Publish
 
-Before the GitHub Actions workflow can publish to npm without an `NPM_TOKEN`, configure npm Trusted Publisher for this package on npmjs.com:
+`npm publish` is guarded by:
 
-1. Sign in to npmjs.com as an owner of the `openclaw-todoist-plugin` package.
-2. Open the package settings and add a **Trusted Publisher**.
-3. Choose **GitHub Actions** as the provider.
-4. Authorize this repository: `dinorastoder/openclaw-todoist-plugin`.
-5. Set the workflow file to `.github/workflows/npm-publish.yml`.
-6. Save the publisher settings in npm.
+```bash
+npm run sync-version && npm run type-check && npm run build && npm test
+```
 
-After that, GitHub Actions can publish with provenance directly from this repository and no `NPM_TOKEN` repository secret is needed.
+The published package includes:
 
-## License
-
-MIT
+- `dist/`
+- `openclaw.plugin.json`
+- `skills/`
+- `README.md`
