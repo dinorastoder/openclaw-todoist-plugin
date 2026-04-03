@@ -37,9 +37,9 @@
     "test": "vitest run --passWithNoTests",
     "prepublishOnly": "npm run sync-version && npm run type-check && npm run build && npm test"
   },
-  "dependencies": {},
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "openclaw": "^2026.4.2",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
   },
