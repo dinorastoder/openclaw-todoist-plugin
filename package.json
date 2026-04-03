@@ -32,9 +32,10 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
+    "sync-version": "node --input-type=module -e \"import { readFileSync, writeFileSync } from 'node:fs'; const pkg = JSON.parse(readFileSync('package.json', 'utf8')); const plugin = JSON.parse(readFileSync('openclaw.plugin.json', 'utf8')); plugin.version = pkg.version; writeFileSync('openclaw.plugin.json', JSON.stringify(plugin, null, 2) + '\\n');\"",
     "type-check": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
-    "prepublishOnly": "npm run build && npm test"
+    "prepublishOnly": "npm run sync-version && npm run type-check && npm run build && npm test"
   },
   "dependencies": {},
   "devDependencies": {

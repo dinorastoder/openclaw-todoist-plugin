@@ -1,0 +1,79 @@
+name: Publish to npm
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Git tag to publish, e.g. 2026.4.3"
+        required: true
+        type: string
+  push:
+    tags:
+      - "[0-9][0-9][0-9][0-9].[0-9]*"
+      - "v[0-9][0-9][0-9][0-9].[0-9]*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: npm-publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Resolve version and npm tag
+        id: release
+        shell: bash
+        env:
+          TARGET_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          TAG="${TARGET_TAG}"
+          RAW_VERSION="${TAG#v}"
+          NPM_TAG="latest"
+
+          if [[ "$RAW_VERSION" =~ -beta([.\-]|$) ]]; then
+            NPM_TAG="beta"
+          fi
+
+          echo "Publishing version ${RAW_VERSION} with npm tag '${NPM_TAG}'"
+          echo "raw_version=${RAW_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "npm_tag=${NPM_TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Set package.json version
+        env:
+          RAW_VERSION: ${{ steps.release.outputs.raw_version }}
+        run: |
+          set -euo pipefail
+          npm version "${RAW_VERSION}" --no-git-tag-version --allow-same-version
+          echo "package.json version set to $(node -p "require('./package.json').version")"
+
+      - name: Publish to npm
+        env:
+          NPM_TAG: ${{ steps.release.outputs.npm_tag }}
+        run: |
+          set -euo pipefail
+          npm publish --provenance --tag "${NPM_TAG}"
