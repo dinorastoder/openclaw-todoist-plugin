@@ -109,8 +109,21 @@ npm test            # run tests
 ## Publishing
 
 - **ClawHub:** push a release tag (for example `2026.4.3` or `v2026.4.3`) or run the existing workflow manually.
-- **npm:** add an `NPM_TOKEN` repository secret, then push the same release tag or run the **Publish to npm** workflow manually.
+- **npm:** configure npm Trusted Publisher once, then push the same release tag or run the **Publish to npm** workflow manually.
 - Tags containing `-beta` publish to the npm `beta` dist-tag; all other tags publish to `latest`.
+
+### npm Trusted Publisher setup (manual, one-time)
+
+Before the GitHub Actions workflow can publish to npm without an `NPM_TOKEN`, configure npm Trusted Publisher for this package on npmjs.com:
+
+1. Sign in to npmjs.com as an owner of the `openclaw-todoist-plugin` package.
+2. Open the package settings and add a **Trusted Publisher**.
+3. Choose **GitHub Actions** as the provider.
+4. Authorize this repository: `dinorastoder/openclaw-todoist-plugin`.
+5. Set the workflow file to `.github/workflows/npm-publish.yml`.
+6. Save the publisher settings in npm.
+
+After that, GitHub Actions can publish with provenance directly from this repository and no `NPM_TOKEN` repository secret is needed.
 
 ## License
 

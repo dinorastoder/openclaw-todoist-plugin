@@ -25,6 +25,7 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
+      id-token: write
 
     steps:
       - name: Checkout
@@ -72,14 +73,7 @@ jobs:
 
       - name: Publish to npm
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_TAG: ${{ steps.release.outputs.npm_tag }}
         run: |
           set -euo pipefail
-
-          if [[ -z "${NODE_AUTH_TOKEN:-}" ]]; then
-            echo "::error::NPM_TOKEN secret is required. Add it in Settings > Secrets and variables > Actions."
-            exit 1
-          fi
-
-          npm publish --tag "${NPM_TAG}"
+          npm publish --provenance --tag "${NPM_TAG}"
