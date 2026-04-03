@@ -24,6 +24,24 @@ td auth login
 openclaw plugins install openclaw-todoist-plugin
 ```
 
+If OpenClaw logs this after installation:
+
+```text
+[plugins] plugins.allow is empty; discovered non-bundled plugins may auto-load: todoist ...
+```
+
+that is a trust warning from OpenClaw, not a plugin failure. Add the plugin id to your trusted plugin allowlist:
+
+```json
+{
+  "plugins": {
+    "allow": ["todoist"]
+  }
+}
+```
+
+The plugin id is `todoist`, which matches `openclaw.plugin.json`.
+
 The package is also publishable on npm for standalone distribution:
 
 ```bash
