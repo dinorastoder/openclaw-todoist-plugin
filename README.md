@@ -30,7 +30,9 @@ If OpenClaw logs this after installation:
 [plugins] plugins.allow is empty; discovered non-bundled plugins may auto-load: todoist ...
 ```
 
-that is a trust warning from OpenClaw, not a plugin failure. Add the plugin id to your trusted plugin allowlist:
+that is a trust warning from OpenClaw, not a plugin failure.
+
+Update your OpenClaw gateway config in the same JSON file where you set plugin config such as `plugins.todoist.apiToken`, and add `todoist` to `plugins.allow`:
 
 ```json
 {
@@ -40,7 +42,25 @@ that is a trust warning from OpenClaw, not a plugin failure. Add the plugin id t
 }
 ```
 
+For example:
+
+```json
+{
+  "plugins": {
+    "allow": ["todoist"],
+    "todoist": {
+      "apiToken": "your-api-token-here"
+    }
+  }
+}
+```
+
 The plugin id is `todoist`, which matches `openclaw.plugin.json`.
+
+OpenClaw documentation:
+
+- Plugin CLI docs: https://docs.openclaw.ai/cli/plugins
+- Gateway configuration docs: https://docs.openclaw.ai/gateway/configuration
 
 The package is also publishable on npm for standalone distribution:
 
