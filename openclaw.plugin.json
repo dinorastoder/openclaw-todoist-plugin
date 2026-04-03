@@ -1,0 +1,23 @@
+{
+  "id": "todoist",
+  "name": "Todoist",
+  "description": "Todoist integration for OpenClaw via the td CLI. Enables your AI assistant to manage tasks, projects, and labels in Todoist.",
+  "version": "1.0.0",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "apiToken": {
+        "type": "string",
+        "description": "Todoist API token. Takes priority over the TODOIST_API_TOKEN environment variable and the token stored by 'td auth login'."
+      }
+    }
+  },
+  "uiHints": {
+    "apiToken": {
+      "label": "API Token",
+      "help": "Your Todoist API token from Settings > Integrations > Developer. Leave empty to use the token stored by 'td auth login' or the TODOIST_API_TOKEN environment variable.",
+      "sensitive": true
+    }
+  }
+}

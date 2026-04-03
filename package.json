@@ -1,0 +1,66 @@
+{
+  "name": "openclaw-todoist-plugin",
+  "version": "1.0.0",
+  "description": "Todoist plugin for OpenClaw — enables the td CLI as a tool in your AI assistant",
+  "keywords": [
+    "openclaw",
+    "openclaw-plugin",
+    "todoist",
+    "tasks",
+    "productivity",
+    "td"
+  ],
+  "homepage": "https://github.com/dinorastoder/openclaw-todoist-plugin",
+  "bugs": {
+    "url": "https://github.com/dinorastoder/openclaw-todoist-plugin/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dinorastoder/openclaw-todoist-plugin.git"
+  },
+  "license": "MIT",
+  "author": "dinorastoder",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/",
+    "openclaw.plugin.json",
+    "SKILL.md",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.3.0"
+  },
+  "peerDependenciesMeta": {
+    "openclaw": {
+      "optional": true
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "openclaw": {
+    "type": "extension",
+    "extensions": [
+      "./dist/index.js"
+    ]
+  }
+}
