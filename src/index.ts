@@ -12,7 +12,7 @@ const todoistConfigJsonSchema = {
     apiToken: {
       type: 'string',
       description:
-        "Todoist API token. Takes priority over the TODOIST_API_TOKEN environment variable and the token stored by 'td auth login'.",
+        'Todoist API token. Takes priority over the TODOIST_API_TOKEN environment variable.',
     },
   },
 } as const;
@@ -23,7 +23,7 @@ export const todoistConfigSchema: OpenClawPluginConfigSchema = {
     apiToken: {
       label: 'API Token',
       help:
-        "Your Todoist API token from Settings > Integrations > Developer. Leave empty to use the token stored by 'td auth login' or the TODOIST_API_TOKEN environment variable.",
+        'Your Todoist API token from Settings > Integrations > Developer. Leave empty to use the TODOIST_API_TOKEN environment variable.',
       sensitive: true,
     },
   },
@@ -61,7 +61,7 @@ export const todoistConfigSchema: OpenClawPluginConfigSchema = {
 export default definePluginEntry({
   id: 'todoist',
   name: 'Todoist',
-  description: 'Todoist integration for OpenClaw via the td CLI',
+  description: 'Todoist integration for OpenClaw via the Todoist REST API',
   configSchema: todoistConfigSchema,
   register(api) {
     registerTodoistTools(api);

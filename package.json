@@ -66,5 +66,8 @@
     "install": {
       "npmSpec": "openclaw-todoist-plugin"
     }
+  },
+  "dependencies": {
+    "@doist/todoist-sdk": "^8.2.1"
   }
 }

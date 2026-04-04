@@ -1,11 +1,7 @@
 import type { OpenClawPluginApi } from 'openclaw/plugin-sdk/plugin-entry';
-import {
-  TdCommandError,
-  getPluginApiToken,
-  isTdCommandError,
-  runTd,
-  type TdCommandResult,
-} from './todoist.js';
+import { TodoistRequestError } from '@doist/todoist-sdk';
+import type { Task, PersonalProject, WorkspaceProject } from '@doist/todoist-sdk';
+import { createApi, getApiErrorMessage, resolveApiToken } from './todoist.js';
 
 const todayParameters = {
   type: 'object',
@@ -13,11 +9,11 @@ const todayParameters = {
   properties: {
     workspace: {
       type: 'string',
-      description: 'Optional workspace name to pass to `td today --workspace`.',
+      description: 'Optional workspace name to filter tasks by (uses Todoist filter syntax).',
     },
     personal: {
       type: 'boolean',
-      description: 'When true, only show personal projects.',
+      description: 'When true, only show personal (non-workspace) tasks.',
     },
   },
 } as const;
@@ -35,7 +31,8 @@ const addTaskParameters = {
     content: {
       type: 'string',
       minLength: 1,
-      description: 'Task content with optional Todoist natural language scheduling.',
+      description:
+        'Task text with optional Todoist natural language extras (e.g. "Buy groceries tomorrow #Work").',
     },
   },
   required: ['content'],
@@ -48,27 +45,10 @@ const completeTaskParameters = {
     ref: {
       type: 'string',
       minLength: 1,
-      description: 'Task name, id:123 style reference, or Todoist task URL.',
+      description: 'Task id (e.g. "12345678"), Todoist task URL, or task name.',
     },
   },
   required: ['ref'],
-} as const;
-
-const rawCommandParameters = {
-  type: 'object',
-  additionalProperties: false,
-  properties: {
-    args: {
-      type: 'array',
-      minItems: 1,
-      items: {
-        type: 'string',
-        minLength: 1,
-      },
-      description: 'Arguments to pass to `td`. Do not include the `td` binary itself.',
-    },
-  },
-  required: ['args'],
 } as const;
 
 export function registerTodoistTools(api: OpenClawPluginApi): void {
@@ -78,20 +58,28 @@ export function registerTodoistTools(api: OpenClawPluginApi): void {
     description: 'List Todoist tasks due today and overdue.',
     parameters: todayParameters,
     async execute(_toolCallId, params) {
-      const args = ['today', '--json'];
-      const workspace = readOptionalString(params, 'workspace');
-      if (workspace) {
-        args.push('--workspace', workspace);
-      }
-      if (readOptionalBoolean(params, 'personal')) {
-        args.push('--personal');
+      const token = resolveApiToken(api.pluginConfig);
+      if (!token) {
+        return authErrorResult('todoist_today');
       }
 
-      return executeTdTool({
-        api,
-        args,
-        emptyText: 'No tasks were returned for today.',
-      });
+      const workspace = readOptionalString(params, 'workspace');
+      const personal = readOptionalBoolean(params, 'personal');
+
+      let query = 'today | overdue';
+      if (workspace) {
+        query = `(today | overdue) & ##${workspace}`;
+      } else if (personal) {
+        query = '(today | overdue) & !##';
+      }
+
+      try {
+        const todoistApi = createApi(token);
+        const response = await todoistApi.getTasksByFilter({ query });
+        return successResult(response.results, 'No tasks were returned for today.');
+      } catch (error: unknown) {
+        return errorResult(error, 'todoist_today');
+      }
     },
   });
 
@@ -101,41 +89,78 @@ export function registerTodoistTools(api: OpenClawPluginApi): void {
     description: 'List Todoist inbox tasks.',
     parameters: noParameters,
     async execute() {
-      return executeTdTool({
-        api,
-        args: ['inbox', '--json'],
-        emptyText: 'No inbox tasks were returned.',
-      });
+      const token = resolveApiToken(api.pluginConfig);
+      if (!token) {
+        return authErrorResult('todoist_inbox');
+      }
+
+      try {
+        const todoistApi = createApi(token);
+        const response = await todoistApi.getTasksByFilter({ query: '#Inbox' });
+        return successResult(response.results, 'No inbox tasks were returned.');
+      } catch (error: unknown) {
+        return errorResult(error, 'todoist_inbox');
+      }
     },
   });
 
   api.registerTool({
     name: 'todoist_add_task',
     label: 'Todoist Add Task',
-    description: 'Add a Todoist task using td quick-add syntax.',
+    description:
+      'Add a Todoist task using natural language quick-add syntax (e.g. "Buy groceries tomorrow #Work").',
     parameters: addTaskParameters,
     async execute(_toolCallId, params) {
+      const token = resolveApiToken(api.pluginConfig);
+      if (!token) {
+        return authErrorResult('todoist_add_task');
+      }
+
       const content = readRequiredString(params, 'content');
-      return executeTdTool({
-        api,
-        args: ['add', content, '--json'],
-        emptyText: 'Task added successfully.',
-      });
+      try {
+        const todoistApi = createApi(token);
+        const task = await todoistApi.quickAddTask({ text: content });
+        return successResult([task], 'Task added successfully.');
+      } catch (error: unknown) {
+        return errorResult(error, 'todoist_add_task');
+      }
     },
   });
 
   api.registerTool({
     name: 'todoist_complete_task',
     label: 'Todoist Complete Task',
-    description: 'Complete a Todoist task by name, id, or URL.',
+    description:
+      'Complete a Todoist task by id, URL, or name. Prefer using the task id when available.',
     parameters: completeTaskParameters,
     async execute(_toolCallId, params) {
+      const token = resolveApiToken(api.pluginConfig);
+      if (!token) {
+        return authErrorResult('todoist_complete_task');
+      }
+
       const ref = readRequiredString(params, 'ref');
-      return executeTdTool({
-        api,
-        args: ['task', 'complete', ref],
-        emptyText: 'Task completed successfully.',
-      });
+
+      try {
+        const todoistApi = createApi(token);
+        const taskId = resolveTaskId(ref);
+
+        if (taskId) {
+          await todoistApi.closeTask(taskId);
+          return successResult([], 'Task completed successfully.');
+        }
+
+        const response = await todoistApi.getTasksByFilter({ query: `search: ${ref}` });
+        if (response.results.length === 0) {
+          return plainErrorResult(`No task found matching "${ref}".`);
+        }
+
+        const task = response.results[0]!;
+        await todoistApi.closeTask(task.id);
+        return successResult([], `Task "${task.content}" completed successfully.`);
+      } catch (error: unknown) {
+        return errorResult(error, 'todoist_complete_task');
+      }
     },
   });
 
@@ -145,151 +170,75 @@ export function registerTodoistTools(api: OpenClawPluginApi): void {
     description: 'List Todoist projects.',
     parameters: noParameters,
     async execute() {
-      return executeTdTool({
-        api,
-        args: ['project', 'list', '--json'],
-        emptyText: 'No projects were returned.',
-      });
-    },
-  });
-
-  api.registerTool({
-    name: 'todoist_run',
-    label: 'Todoist Raw Command',
-    description: 'Run a raw Todoist `td` command when a dedicated tool does not fit.',
-    parameters: rawCommandParameters,
-    async execute(_toolCallId, params) {
-      const args = readStringArray(params, 'args');
-      if (args.length === 0) {
-        return failureResult(
-          new TdCommandError({
-            kind: 'invalid_arguments',
-            command: 'td',
-            message: 'Pass at least one `td` argument in `args`.',
-          }),
-        );
+      const token = resolveApiToken(api.pluginConfig);
+      if (!token) {
+        return authErrorResult('todoist_list_projects');
       }
 
-      if (args[0] === 'td') {
-        return failureResult(
-          new TdCommandError({
-            kind: 'invalid_arguments',
-            command: 'td',
-            message: 'Pass only the arguments after `td`, not the binary name itself.',
-          }),
-        );
+      try {
+        const todoistApi = createApi(token);
+        const response = await todoistApi.getProjects();
+        return successResult(response.results, 'No projects were returned.');
+      } catch (error: unknown) {
+        return errorResult(error, 'todoist_list_projects');
       }
-
-      if (args[0] === 'auth' && args[1] === 'login') {
-        return failureResult(
-          new TdCommandError({
-            kind: 'invalid_arguments',
-            command: 'td auth login',
-            message:
-              'Interactive `td auth login` is not supported from the tool. Run it in a terminal, or configure `plugins.entries.todoist.config.apiToken` instead.',
-          }),
-        );
-      }
-
-      return executeTdTool({
-        api,
-        args,
-        emptyText: 'Todoist CLI command completed.',
-      });
     },
   });
 }
 
-async function executeTdTool(params: {
-  api: OpenClawPluginApi;
-  args: string[];
-  emptyText: string;
-}) {
-  try {
-    const result = await runTd(params.args, {
-      apiToken: getPluginApiToken(params.api.pluginConfig),
-    });
-    return successResult(result, params.emptyText);
-  } catch (error: unknown) {
-    return failureResult(error);
+function resolveTaskId(ref: string): string | null {
+  const urlMatch = ref.match(/todoist\.com\/app\/task\/([A-Za-z0-9_-]+)/);
+  if (urlMatch) {
+    return urlMatch[1]!;
   }
+  if (/^\d+$/.test(ref.trim())) {
+    return ref.trim();
+  }
+  return null;
 }
 
-function successResult(result: TdCommandResult, emptyText: string) {
-  const textSections = [formatPrimaryOutput(result, emptyText)];
-  if (result.stderr) {
-    textSections.push(`td stderr:\n${result.stderr}`);
-  }
-
+function successResult(
+  data: (Task | PersonalProject | WorkspaceProject)[],
+  emptyText: string,
+) {
+  const text = data.length > 0 ? JSON.stringify(data, null, 2) : emptyText;
   return {
-    content: [
-      {
-        type: 'text' as const,
-        text: textSections.join('\n\n'),
-      },
-    ],
-    details: {
-      status: 'ok',
-      command: result.command,
-      stderr: result.stderr || undefined,
-      json: result.json,
-    },
+    content: [{ type: 'text' as const, text }],
+    details: { status: 'ok' as const, data: data.length > 0 ? data : undefined },
   };
 }
 
-function failureResult(error: unknown) {
-  const tdError = normalizeToolError(error);
-  const textSections = [tdError.message];
-  if (tdError.stderr) {
-    textSections.push(`td stderr:\n${tdError.stderr}`);
-  } else if (tdError.kind === 'malformed_json' && tdError.stdout) {
-    textSections.push(`td stdout:\n${tdError.stdout}`);
-  }
-
+function errorResult(error: unknown, operation: string) {
+  const message = getApiErrorMessage(error, operation);
+  const statusCode =
+    error instanceof TodoistRequestError ? error.httpStatusCode : undefined;
   return {
-    content: [
-      {
-        type: 'text' as const,
-        text: textSections.join('\n\n'),
-      },
-    ],
+    content: [{ type: 'text' as const, text: message }],
     details: {
       status: 'failed' as const,
-      kind: tdError.kind,
-      command: tdError.command,
-      exitCode: tdError.exitCode,
+      operation,
+      httpStatusCode: statusCode,
     },
   };
 }
 
-function formatPrimaryOutput(result: TdCommandResult, emptyText: string): string {
-  if (typeof result.json !== 'undefined') {
-    return JSON.stringify(result.json, null, 2);
-  }
-
-  return result.stdout || emptyText;
+function plainErrorResult(message: string) {
+  return {
+    content: [{ type: 'text' as const, text: message }],
+    details: { status: 'failed' as const },
+  };
 }
 
-function normalizeToolError(error: unknown): TdCommandError {
-  if (isTdCommandError(error)) {
-    return error;
-  }
-
-  return new TdCommandError({
-    kind: 'command_failed',
-    command: 'td',
-    message: 'Unexpected Todoist plugin failure.',
-  });
+function authErrorResult(operation: string) {
+  return plainErrorResult(
+    `Todoist API token is not configured. Set \`plugins.entries.todoist.config.apiToken\` or \`TODOIST_API_TOKEN\`.`,
+  );
 }
 
 function readRequiredString(params: unknown, key: string): string {
   const value = readOptionalString(params, key);
   if (!value) {
-    throw new TdCommandError({
-      kind: 'invalid_arguments',
-      command: 'td',
-      message: `Missing required parameter: ${key}.`,
-    });
+    throw new Error(`Missing required parameter: ${key}.`);
   }
   return value;
 }
@@ -298,29 +247,16 @@ function readOptionalString(params: unknown, key: string): string | undefined {
   if (!isRecord(params)) {
     return undefined;
   }
-
   const value = params[key];
   if (typeof value !== 'string') {
     return undefined;
   }
-
   const trimmed = value.trim();
   return trimmed || undefined;
 }
 
 function readOptionalBoolean(params: unknown, key: string): boolean {
   return isRecord(params) && params[key] === true;
-}
-
-function readStringArray(params: unknown, key: string): string[] {
-  if (!isRecord(params) || !Array.isArray(params[key])) {
-    return [];
-  }
-
-  return params[key]
-    .filter((value): value is string => typeof value === 'string')
-    .map((value) => value.trim())
-    .filter(Boolean);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

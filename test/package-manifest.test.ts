@@ -30,7 +30,6 @@ describe('package and manifest metadata', () => {
         'todoist_add_task',
         'todoist_complete_task',
         'todoist_list_projects',
-        'todoist_run',
       ],
     });
 
