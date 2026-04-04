@@ -137,64 +137,98 @@ td auth status
 
 The plugin returns normalized error text and includes `td stderr` when it helps diagnose the failure.
 
-## Docker
+## Docker (running inside the OpenClaw Docker image)
 
-The repository ships a `Dockerfile` and a `docker-compose.yml` so you can run
-OpenClaw with the Todoist plugin and the `td` CLI entirely inside Docker —
-without installing anything on your host beyond Docker itself.
+The `td` binary must be present **inside the container** — installing it on
+your host machine has no effect because OpenClaw runs in an isolated Docker
+environment.
 
-### What the image contains
+The workflow below assumes you cloned the
+[openclaw](https://github.com/openclaw/openclaw) repository and build its
+Docker image locally.
 
-| Component | How it is installed |
-| --- | --- |
-| Node.js 22 | Base image (`node:22-slim`) |
-| `git` | `apt-get install git` — available inside the container; source updates are pulled on the host then the image is rebuilt |
-| `td` (Todoist CLI) | `npm install -g @doist/todoist-cli` |
-| `openclaw` | `npm install -g openclaw` |
-| This plugin | Built from source and registered with `openclaw plugins install -l .` |
+### Step 1 — create `Dockerfile.local`
 
-### Build and run
+In the root of the cloned `openclaw` repository, create a file called
+`Dockerfile.local`.  This file is not tracked by the openclaw git repository,
+so it will never be overwritten by `git pull`:
 
-```bash
-# 1. (Optional) set your Todoist API token so the container picks it up
-export TODOIST_API_TOKEN=your_token_here
+```dockerfile
+# Dockerfile.local — extends the openclaw image with the Todoist CLI (td).
+# Place this file in the root of your cloned openclaw repo.
+# This file is NOT part of the openclaw upstream git tree and is safe to keep
+# across git pulls.
+FROM openclaw:local
 
-# 2. Build the image and start the container
-docker compose up --build
+USER root
+RUN npm install -g @doist/todoist-cli
+USER node
 ```
 
-The OpenClaw config directory (`/root/.config/openclaw`) is stored in a named
-Docker volume (`openclaw-config`) so your settings survive container restarts.
+### Step 2 — create `docker-compose.override.yml`
 
-### Authentication inside the container
+Docker Compose automatically merges `docker-compose.override.yml` with
+`docker-compose.yml`.  Because it is also not tracked by openclaw's git, it
+survives `git pull` untouched.
 
-The `TODOIST_API_TOKEN` environment variable is forwarded into the container
-automatically by `docker-compose.yml`.  You can also put it in a `.env` file
-next to `docker-compose.yml`:
+Create `docker-compose.override.yml` in the same directory:
+
+```yaml
+# docker-compose.override.yml — local overrides for openclaw.
+# Merged automatically by docker compose. Not tracked by openclaw git.
+services:
+  openclaw-gateway:
+    environment:
+      TODOIST_API_TOKEN: ${TODOIST_API_TOKEN:-}
+  openclaw-cli:
+    environment:
+      TODOIST_API_TOKEN: ${TODOIST_API_TOKEN:-}
+```
+
+Set your token in the shell or in a `.env` file next to `docker-compose.yml`
+(already listed in openclaw's `.gitignore`):
 
 ```
 TODOIST_API_TOKEN=your_token_here
 ```
 
-Alternatively, run `td auth login` inside the running container:
+### Step 3 — build and install the plugin
 
 ```bash
-docker compose run --rm openclaw sh -c "td auth login"
+# Build the openclaw base image
+docker build -t openclaw:local .
+
+# Extend it with the td CLI
+docker build -f Dockerfile.local -t openclaw:local .
+
+# Start the stack
+docker compose up -d
+
+# Install this plugin once — persisted via the config volume
+docker compose exec openclaw-cli \
+  openclaw plugins install openclaw-todoist-plugin
 ```
 
-### Keeping the source code up to date from git
-
-To pull the latest plugin source from GitHub and rebuild the image:
+Verify everything is working:
 
 ```bash
-git pull
-docker compose build
-docker compose up
+docker compose exec openclaw-cli openclaw todoist status
 ```
 
-Because `package.json` and `package-lock.json` are copied before the rest of
-the source, Docker's layer cache means `npm ci` is only re-run when the
-dependency manifests change, making subsequent rebuilds fast.
+### Keeping up to date after `git pull`
+
+When a new version of openclaw is released:
+
+```bash
+git pull                              # update openclaw source
+docker build -t openclaw:local .      # rebuild the base image
+docker build -f Dockerfile.local -t openclaw:local .  # re-add td CLI
+docker compose up -d                  # restart services
+```
+
+`Dockerfile.local` and `docker-compose.override.yml` are not part of the
+openclaw upstream tree, so `git pull` never touches them.  The plugin
+installation in the config volume also persists across rebuilds.
 
 ## Development
 
