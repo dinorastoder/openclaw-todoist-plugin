@@ -1,34 +1,23 @@
 # openclaw-todoist-plugin
 
-Todoist plugin for [OpenClaw](https://github.com/openclaw/openclaw) that exposes the [`td` CLI](https://github.com/Doist/todoist-cli) as native agent tools.
+Todoist plugin for [OpenClaw](https://github.com/openclaw/openclaw) that exposes the [Todoist REST API](https://developer.todoist.com/api/v1/) as native agent tools via the [`@doist/todoist-sdk`](https://github.com/Doist/todoist-sdk-typescript).
 
 ## What it provides
 
 - Current OpenClaw native plugin entrypoint via `definePluginEntry(...)`
-- Native Todoist tools backed by the `td` CLI
-- `openclaw todoist status` for quick prerequisite checks
+- Native Todoist tools backed by the Todoist REST API (no external CLI required)
+- `openclaw todoist status` for quick auth readiness checks
 - Bundled skill docs at `skills/todoist/SKILL.md`
 - npm-installable package: `openclaw-todoist-plugin`
 
 ## Prerequisites
 
-Install the Todoist CLI:
-
-```bash
-npm install -g @doist/todoist-cli
-```
+You need a Todoist API token. Get one from **Settings → Integrations → Developer** in Todoist.
 
 Authentication is resolved in this order:
 
 1. `plugins.entries.todoist.config.apiToken`
-2. `TODOIST_API_TOKEN`
-3. Credentials stored by `td auth login`
-
-If you do not want to use a config token or environment variable, run:
-
-```bash
-td auth login
-```
+2. `TODOIST_API_TOKEN` environment variable
 
 ## Install
 
@@ -70,16 +59,15 @@ The plugin id stays `todoist`.
 | --- | --- |
 | `todoist_today` | List tasks due today and overdue |
 | `todoist_inbox` | List inbox tasks |
-| `todoist_add_task` | Add a task with Todoist quick-add syntax |
-| `todoist_complete_task` | Complete a task by name, `id:...`, or URL |
+| `todoist_add_task` | Add a task with Todoist natural language quick-add syntax |
+| `todoist_complete_task` | Complete a task by id, URL, or name |
 | `todoist_list_projects` | List projects |
-| `todoist_run` | Run a raw `td` command |
 
 Notes:
 
-- `todoist_run` expects only the arguments after `td`
-- `todoist_run` blocks interactive `td auth login`; run that in a terminal instead
-- JSON-returning commands are parsed and surfaced with normalized errors when malformed
+- `todoist_add_task` accepts natural language text (e.g. `"Buy groceries tomorrow #Work"`) via the Todoist quick-add API
+- `todoist_complete_task` accepts a task id (numeric), a Todoist task URL, or a task name; prefer ids or URLs when available
+- `todoist_today` accepts an optional `workspace` (filter by workspace name) and `personal` (personal tasks only) parameter
 
 ## CLI command
 
@@ -89,10 +77,9 @@ openclaw todoist status
 
 The status command reports:
 
-- whether `td` is installed
-- the detected `td` version
 - whether a plugin config token is present
-- whether authentication appears usable
+- whether a `TODOIST_API_TOKEN` environment variable is set
+- whether authentication is usable (by verifying the token against the API)
 
 ## Bundled skill
 
@@ -104,63 +91,55 @@ skills/todoist/SKILL.md
 
 ## Troubleshooting
 
-### Plugin loads, but tools say `td` is missing
+### Plugin loads, but tools say the API token is not configured
 
-Install the CLI and ensure it is on `PATH` for the OpenClaw process:
+Set the token in your OpenClaw config:
 
-```bash
-npm install -g @doist/todoist-cli
-openclaw todoist status
+```json
+{
+  "plugins": {
+    "entries": {
+      "todoist": {
+        "config": {
+          "apiToken": "your-api-token-here"
+        }
+      }
+    }
+  }
+}
 ```
 
-### `td` is installed, but authentication is unavailable
+Or set the environment variable:
 
-Use one of:
+```bash
+export TODOIST_API_TOKEN=your-api-token-here
+```
 
-- `plugins.entries.todoist.config.apiToken`
-- `TODOIST_API_TOKEN`
-- `td auth login`
+### API token is present but authentication fails
+
+Verify the token is valid at **Settings → Integrations → Developer** in Todoist.
+Run `openclaw todoist status` to confirm which prerequisite is missing.
 
 ### Plugin config is missing
 
 Add the `plugins.entries.todoist` block shown above and keep `todoist` in `plugins.allow`.
 
-### Todoist command failed
-
-Run the same command directly with `td` to compare output, for example:
-
-```bash
-td today --json
-td project list --json
-td auth status
-```
-
-The plugin returns normalized error text and includes `td stderr` when it helps diagnose the failure.
-
 ## Docker (running inside the OpenClaw Docker image)
 
-The `td` binary must be present **inside the container** — installing it on
-your host machine has no effect because OpenClaw runs in an isolated Docker
-environment.
+No extra binary is needed — the plugin calls the Todoist REST API directly.
+Just make your API token available inside the container via the OpenClaw config or the
+`TODOIST_API_TOKEN` environment variable.
 
 The workflow below assumes you cloned the
 [openclaw](https://github.com/openclaw/openclaw) repository.
 
-### Step 1 — create `Dockerfile.local`
+### Step 1 — expose the API token
 
-In the root of the cloned `openclaw` repository, create a file called
-`Dockerfile.local`.  This file is not tracked by the openclaw git repository,
-so it will never be overwritten by `git pull`:
+Add your Todoist API token to the `.env` file that openclaw's setup script
+creates (it is already listed in openclaw's `.gitignore`):
 
-```dockerfile
-# Dockerfile.local — extends the openclaw image with the Todoist CLI (td).
-# Place this file in the root of your cloned openclaw repo.
-# Not tracked by openclaw git — safe to keep across git pulls.
-FROM openclaw:local
-
-USER root
-RUN npm install -g @doist/todoist-cli
-USER node
+```
+TODOIST_API_TOKEN=your_token_here
 ```
 
 ### Step 2 — create `docker-compose.override.yml`
@@ -183,13 +162,6 @@ services:
       TODOIST_API_TOKEN: ${TODOIST_API_TOKEN:-}
 ```
 
-Add your Todoist API token to the `.env` file that openclaw's setup script
-creates (it is already listed in openclaw's `.gitignore`):
-
-```
-TODOIST_API_TOKEN=your_token_here
-```
-
 ### Step 3 — initial setup with `docker-setup.sh`
 
 openclaw ships `scripts/docker/setup.sh` which handles the full first-time
@@ -199,14 +171,6 @@ starts the gateway.  Run it once:
 
 ```bash
 bash scripts/docker/setup.sh
-```
-
-After it completes, extend the image to add `td`, then restart the services to
-pick up the new image:
-
-```bash
-docker build -f Dockerfile.local -t openclaw:local .
-docker compose up -d
 ```
 
 Install the plugin once — it is persisted in the config volume:
@@ -224,19 +188,16 @@ docker compose exec openclaw-cli openclaw todoist status
 
 ### Keeping up to date after `git pull`
 
-When a new version of openclaw is released, rebuild both images and restart:
-
 ```bash
-git pull                                              # update openclaw source
-docker build -t openclaw:local .                      # rebuild the base image
-docker build -f Dockerfile.local -t openclaw:local .  # re-add td CLI
-docker compose up -d                                  # restart with new images
+git pull                      # update openclaw source
+docker build -t openclaw:local .
+docker compose up -d
 ```
 
-There is no need to re-run `docker-setup.sh` for routine updates — it is only
-needed the first time.  `Dockerfile.local` and `docker-compose.override.yml`
-are not part of the openclaw upstream tree, so `git pull` never touches them.
-The plugin installation in the config volume also persists across rebuilds.
+There is no need to re-run `docker-setup.sh` for routine updates.
+`docker-compose.override.yml` is not part of the openclaw upstream tree, so
+`git pull` never touches it.  The plugin installation in the config volume also
+persists across rebuilds.
 
 ## Development
 

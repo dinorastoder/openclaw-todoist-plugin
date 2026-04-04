@@ -21,7 +21,6 @@ describe('plugin registration', () => {
       'todoist_add_task',
       'todoist_complete_task',
       'todoist_list_projects',
-      'todoist_run',
     ]);
     expect(registerCli).toHaveBeenCalledTimes(1);
     expect(registerCli.mock.calls[0]?.[1]).toEqual({ commands: ['todoist'] });
