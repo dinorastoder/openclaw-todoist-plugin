@@ -137,6 +137,65 @@ td auth status
 
 The plugin returns normalized error text and includes `td stderr` when it helps diagnose the failure.
 
+## Docker
+
+The repository ships a `Dockerfile` and a `docker-compose.yml` so you can run
+OpenClaw with the Todoist plugin and the `td` CLI entirely inside Docker —
+without installing anything on your host beyond Docker itself.
+
+### What the image contains
+
+| Component | How it is installed |
+| --- | --- |
+| Node.js 22 | Base image (`node:22-slim`) |
+| `git` | `apt-get install git` — available inside the container; source updates are pulled on the host then the image is rebuilt |
+| `td` (Todoist CLI) | `npm install -g @doist/todoist-cli` |
+| `openclaw` | `npm install -g openclaw` |
+| This plugin | Built from source and registered with `openclaw plugins install -l .` |
+
+### Build and run
+
+```bash
+# 1. (Optional) set your Todoist API token so the container picks it up
+export TODOIST_API_TOKEN=your_token_here
+
+# 2. Build the image and start the container
+docker compose up --build
+```
+
+The OpenClaw config directory (`/root/.config/openclaw`) is stored in a named
+Docker volume (`openclaw-config`) so your settings survive container restarts.
+
+### Authentication inside the container
+
+The `TODOIST_API_TOKEN` environment variable is forwarded into the container
+automatically by `docker-compose.yml`.  You can also put it in a `.env` file
+next to `docker-compose.yml`:
+
+```
+TODOIST_API_TOKEN=your_token_here
+```
+
+Alternatively, run `td auth login` inside the running container:
+
+```bash
+docker compose run --rm openclaw sh -c "td auth login"
+```
+
+### Keeping the source code up to date from git
+
+To pull the latest plugin source from GitHub and rebuild the image:
+
+```bash
+git pull
+docker compose build
+docker compose up
+```
+
+Because `package.json` and `package-lock.json` are copied before the rest of
+the source, Docker's layer cache means `npm ci` is only re-run when the
+dependency manifests change, making subsequent rebuilds fast.
+
 ## Development
 
 ```bash

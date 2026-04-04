@@ -1,0 +1,16 @@
+services:
+  openclaw:
+    build: .
+    # Pass your Todoist API token via a .env file or shell environment:
+    #   export TODOIST_API_TOKEN=your_token_here
+    #   docker compose up
+    environment:
+      - TODOIST_API_TOKEN=${TODOIST_API_TOKEN:-}
+    # Persist the OpenClaw config (plugin settings, credentials) across restarts
+    volumes:
+      - openclaw-config:/root/.config/openclaw
+    stdin_open: true
+    tty: true
+
+volumes:
+  openclaw-config:
