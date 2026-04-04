@@ -118,7 +118,7 @@ export function registerTodoistTools(api: OpenClawPluginApi): void {
       const content = readRequiredString(params, 'content');
       return executeTdTool({
         api,
-        args: ['add', content, '--json'],
+        args: ['add', content],
         emptyText: 'Task added successfully.',
       });
     },
