@@ -64,6 +64,20 @@ describe('runTd', () => {
     });
   });
 
+  it('normalizes unknown option failures (e.g. --json not supported by add)', async () => {
+    const execFileImpl = vi.fn(async () => {
+      throw Object.assign(new Error('failed'), {
+        code: 1,
+        stderr: "error: unknown option '--json'",
+      });
+    });
+
+    await expect(runTd(['add', 'Buy milk', '--json'], { execFileImpl })).rejects.toMatchObject({
+      kind: 'invalid_arguments',
+      message: 'The Todoist CLI command arguments were rejected by `td`.',
+    });
+  });
+
   it('reports malformed json cleanly', async () => {
     const execFileImpl = vi.fn(async () => ({
       stdout: '{not json',
