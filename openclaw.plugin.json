@@ -1,5 +1,5 @@
 {
-  "id": "todoist",
+  "id": "openclaw-todoist-plugin",
   "name": "Todoist",
   "description": "Todoist integration for OpenClaw via the td CLI. Enables your AI assistant to manage tasks, projects, and labels in Todoist.",
   "version": "1.0.0",
