@@ -68,7 +68,7 @@ export function registerTodoistTools(api: OpenClawPluginApi): void {
 
       let query = 'today | overdue';
       if (workspace) {
-        query = `(today | overdue) & ##${workspace}`;
+        query = `(today | overdue) & ##"${sanitizeFilterLiteral(workspace)}"`;
       } else if (personal) {
         query = '(today | overdue) & !##';
       }
@@ -150,7 +150,9 @@ export function registerTodoistTools(api: OpenClawPluginApi): void {
           return successResult([], 'Task completed successfully.');
         }
 
-        const response = await todoistApi.getTasksByFilter({ query: `search: ${ref}` });
+        const response = await todoistApi.getTasksByFilter({
+          query: `search: ${sanitizeFilterLiteral(ref)}`,
+        });
         if (response.results.length === 0) {
           return plainErrorResult(`No task found matching "${ref}".`);
         }
@@ -195,6 +197,10 @@ function resolveTaskId(ref: string): string | null {
     return ref.trim();
   }
   return null;
+}
+
+function sanitizeFilterLiteral(value: string): string {
+  return value.replace(/"/g, '');
 }
 
 function successResult(
