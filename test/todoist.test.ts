@@ -1,119 +1,102 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { TodoistRequestError } from '@doist/todoist-sdk';
 import {
-  TdCommandError,
-  getTdStatus,
-  runTd,
+  createApi,
+  getApiStatus,
+  getPluginApiToken,
+  resolveApiToken,
 } from '../src/todoist.js';
+
+// Mock the TodoistApi so getApiStatus tests don't hit the network.
+vi.mock('@doist/todoist-sdk', async () => {
+  const actual = await vi.importActual<typeof import('@doist/todoist-sdk')>('@doist/todoist-sdk');
+  return {
+    ...actual,
+    TodoistApi: vi.fn().mockReturnValue({
+      getProjects: vi.fn().mockResolvedValue({ results: [], nextCursor: null }),
+    }),
+  };
+});
 
 afterEach(() => {
   delete process.env.TODOIST_API_TOKEN;
+  vi.clearAllMocks();
 });
 
-describe('runTd', () => {
-  it('passes args and plugin token to td', async () => {
-    const execFileImpl = vi.fn(async () => ({
-      stdout: '{"tasks":[]}',
-      stderr: '',
-    }));
-
-    const result = await runTd(['today', '--json'], {
-      apiToken: 'plugin-token',
-      execFileImpl,
-    });
-
-    expect(execFileImpl).toHaveBeenCalledWith(
-      'td',
-      ['today', '--json'],
-      expect.objectContaining({
-        encoding: 'utf8',
-        timeout: 30_000,
-        env: expect.objectContaining({
-          TODOIST_API_TOKEN: 'plugin-token',
-        }),
-      }),
-    );
-    expect(result.json).toEqual({ tasks: [] });
+describe('getPluginApiToken', () => {
+  it('returns the token from plugin config', () => {
+    expect(getPluginApiToken({ apiToken: 'abc' })).toBe('abc');
   });
 
-  it('normalizes authentication failures', async () => {
-    const execFileImpl = vi.fn(async () => {
-      throw Object.assign(new Error('failed'), {
-        code: 1,
-        stderr: 'authentication required: run td auth login',
-      });
-    });
-
-    await expect(runTd(['today'], { execFileImpl })).rejects.toMatchObject({
-      kind: 'auth_missing',
-      message:
-        'Todoist CLI authentication is not available. Set `plugins.entries.todoist.config.apiToken`, set `TODOIST_API_TOKEN`, or run `td auth login`.',
-    });
+  it('trims whitespace', () => {
+    expect(getPluginApiToken({ apiToken: '  tok  ' })).toBe('tok');
   });
 
-  it('normalizes invalid argument failures', async () => {
-    const execFileImpl = vi.fn(async () => {
-      throw Object.assign(new Error('failed'), {
-        code: 1,
-        stderr: 'unknown command "todya" for "td"',
-      });
-    });
-
-    await expect(runTd(['todya'], { execFileImpl })).rejects.toMatchObject({
-      kind: 'invalid_arguments',
-      message: 'The Todoist CLI command arguments were rejected by `td`.',
-    });
-  });
-
-  it('reports malformed json cleanly', async () => {
-    const execFileImpl = vi.fn(async () => ({
-      stdout: '{not json',
-      stderr: '',
-    }));
-
-    await expect(runTd(['today', '--json'], { execFileImpl })).rejects.toBeInstanceOf(
-      TdCommandError,
-    );
-    await expect(runTd(['today', '--json'], { execFileImpl })).rejects.toMatchObject({
-      kind: 'malformed_json',
-    });
+  it('returns undefined when apiToken is empty or missing', () => {
+    expect(getPluginApiToken({})).toBeUndefined();
+    expect(getPluginApiToken({ apiToken: '   ' })).toBeUndefined();
+    expect(getPluginApiToken(undefined)).toBeUndefined();
   });
 });
 
-describe('getTdStatus', () => {
-  it('uses plugin config token as a successful auth signal', async () => {
-    const execFileImpl = vi.fn(async () => ({
-      stdout: 'v1.2.3',
-      stderr: '',
-    }));
-
-    const status = await getTdStatus({
-      apiToken: 'plugin-token',
-      execFileImpl,
-    });
-
-    expect(status).toEqual({
-      available: true,
-      version: 'v1.2.3',
-      pluginConfigTokenPresent: true,
-      envTokenPresent: false,
-      authUsable: true,
-      authSource: 'plugin-config',
-      authMessage: 'Plugin config token is present.',
-    });
-    expect(execFileImpl).toHaveBeenCalledTimes(1);
+describe('resolveApiToken', () => {
+  it('prefers plugin config token over env var', () => {
+    process.env.TODOIST_API_TOKEN = 'env-token';
+    expect(resolveApiToken({ apiToken: 'config-token' })).toBe('config-token');
   });
 
-  it('reports td missing cleanly', async () => {
-    const execFileImpl = vi.fn(async () => {
-      throw Object.assign(new Error('spawn td ENOENT'), {
-        code: 'ENOENT',
-      });
-    });
+  it('falls back to TODOIST_API_TOKEN env var', () => {
+    process.env.TODOIST_API_TOKEN = 'env-token';
+    expect(resolveApiToken({})).toBe('env-token');
+  });
 
-    const status = await getTdStatus({ execFileImpl });
+  it('returns undefined when no token is available', () => {
+    expect(resolveApiToken({})).toBeUndefined();
+  });
+});
 
-    expect(status.available).toBe(false);
+describe('createApi', () => {
+  it('returns a TodoistApi-compatible instance', () => {
+    const api = createApi('test-token');
+    expect(api).toBeDefined();
+    expect(typeof api.getProjects).toBe('function');
+  });
+});
+
+describe('getApiStatus', () => {
+  it('reports missing when no token is present', async () => {
+    const status = await getApiStatus({});
+    expect(status.tokenPresent).toBe(false);
+    expect(status.tokenSource).toBe('missing');
     expect(status.authUsable).toBe(false);
-    expect(status.authMessage).toContain('Todoist CLI `td` is not installed');
+    expect(status.authMessage).toContain('No Todoist API token');
+  });
+
+  it('reports plugin-config as token source when pluginConfigToken is provided and API succeeds', async () => {
+    const status = await getApiStatus({ pluginConfigToken: 'plugin-tok' });
+    expect(status.tokenPresent).toBe(true);
+    expect(status.tokenSource).toBe('plugin-config');
+    expect(status.authUsable).toBe(true);
+  });
+
+  it('reports environment as token source when only env var is set and API succeeds', async () => {
+    process.env.TODOIST_API_TOKEN = 'env-tok';
+    const status = await getApiStatus({});
+    expect(status.tokenPresent).toBe(true);
+    expect(status.tokenSource).toBe('environment');
+    expect(status.authUsable).toBe(true);
+  });
+
+  it('reports auth failure when API returns a 401 error', async () => {
+    const { TodoistApi } = await import('@doist/todoist-sdk');
+    vi.mocked(TodoistApi).mockReturnValueOnce({
+      getProjects: vi.fn().mockRejectedValue(new TodoistRequestError('Unauthorized', 401)),
+    } as never);
+
+    process.env.TODOIST_API_TOKEN = 'bad-token';
+    const status = await getApiStatus({});
+    expect(status.tokenPresent).toBe(true);
+    expect(status.authUsable).toBe(false);
+    expect(status.authMessage).toContain('invalid or expired');
   });
 });
