@@ -21,6 +21,7 @@ describe('package and manifest metadata', () => {
     );
 
     expect(manifest.id).toBe('todoist');
+    expect(manifest.name).toBe('openclaw-todoist-plugin');
     expect(manifest.version).toBe(pkg.version);
     expect(manifest.skills).toEqual(['./skills']);
     expect(manifest.contracts).toEqual({
