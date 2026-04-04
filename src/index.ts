@@ -60,7 +60,7 @@ export const todoistConfigSchema: OpenClawPluginConfigSchema = {
 
 export default definePluginEntry({
   id: 'todoist',
-  name: 'Todoist',
+  name: 'openclaw-todoist-plugin',
   description: 'Todoist integration for OpenClaw via the Todoist REST API',
   configSchema: todoistConfigSchema,
   register(api) {

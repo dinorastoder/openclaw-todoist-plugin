@@ -1,6 +1,6 @@
 {
   "id": "todoist",
-  "name": "Todoist",
+  "name": "openclaw-todoist-plugin",
   "description": "Todoist integration for OpenClaw via the Todoist REST API. Enables your AI assistant to manage tasks, projects, and labels in Todoist.",
   "version": "1.0.0",
   "skills": [
