@@ -20,7 +20,7 @@ describe('package and manifest metadata', () => {
       expect.arrayContaining(['dist/', 'openclaw.plugin.json', 'skills/', 'README.md']),
     );
 
-    expect(manifest.id).toBe('todoist');
+    expect(manifest.id).toBe('openclaw-todoist-plugin');
     expect(manifest.version).toBe(pkg.version);
     expect(manifest.skills).toEqual(['./skills']);
     expect(manifest.contracts).toEqual({
