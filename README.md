@@ -144,8 +144,7 @@ your host machine has no effect because OpenClaw runs in an isolated Docker
 environment.
 
 The workflow below assumes you cloned the
-[openclaw](https://github.com/openclaw/openclaw) repository and build its
-Docker image locally.
+[openclaw](https://github.com/openclaw/openclaw) repository.
 
 ### Step 1 — create `Dockerfile.local`
 
@@ -156,8 +155,7 @@ so it will never be overwritten by `git pull`:
 ```dockerfile
 # Dockerfile.local — extends the openclaw image with the Todoist CLI (td).
 # Place this file in the root of your cloned openclaw repo.
-# This file is NOT part of the openclaw upstream git tree and is safe to keep
-# across git pulls.
+# Not tracked by openclaw git — safe to keep across git pulls.
 FROM openclaw:local
 
 USER root
@@ -185,26 +183,35 @@ services:
       TODOIST_API_TOKEN: ${TODOIST_API_TOKEN:-}
 ```
 
-Set your token in the shell or in a `.env` file next to `docker-compose.yml`
-(already listed in openclaw's `.gitignore`):
+Add your Todoist API token to the `.env` file that openclaw's setup script
+creates (it is already listed in openclaw's `.gitignore`):
 
 ```
 TODOIST_API_TOKEN=your_token_here
 ```
 
-### Step 3 — build and install the plugin
+### Step 3 — initial setup with `docker-setup.sh`
+
+openclaw ships `scripts/docker/setup.sh` which handles the full first-time
+setup: it builds the `openclaw:local` image, creates config directories,
+generates a gateway token, writes `.env`, runs interactive onboarding, and
+starts the gateway.  Run it once:
 
 ```bash
-# Build the openclaw base image
-docker build -t openclaw:local .
+bash scripts/docker/setup.sh
+```
 
-# Extend it with the td CLI
+After it completes, extend the image to add `td`, then restart the services to
+pick up the new image:
+
+```bash
 docker build -f Dockerfile.local -t openclaw:local .
-
-# Start the stack
 docker compose up -d
+```
 
-# Install this plugin once — persisted via the config volume
+Install the plugin once — it is persisted in the config volume:
+
+```bash
 docker compose exec openclaw-cli \
   openclaw plugins install openclaw-todoist-plugin
 ```
@@ -217,18 +224,19 @@ docker compose exec openclaw-cli openclaw todoist status
 
 ### Keeping up to date after `git pull`
 
-When a new version of openclaw is released:
+When a new version of openclaw is released, rebuild both images and restart:
 
 ```bash
-git pull                              # update openclaw source
-docker build -t openclaw:local .      # rebuild the base image
+git pull                                              # update openclaw source
+docker build -t openclaw:local .                      # rebuild the base image
 docker build -f Dockerfile.local -t openclaw:local .  # re-add td CLI
-docker compose up -d                  # restart services
+docker compose up -d                                  # restart with new images
 ```
 
-`Dockerfile.local` and `docker-compose.override.yml` are not part of the
-openclaw upstream tree, so `git pull` never touches them.  The plugin
-installation in the config volume also persists across rebuilds.
+There is no need to re-run `docker-setup.sh` for routine updates — it is only
+needed the first time.  `Dockerfile.local` and `docker-compose.override.yml`
+are not part of the openclaw upstream tree, so `git pull` never touches them.
+The plugin installation in the config volume also persists across rebuilds.
 
 ## Development
 
