@@ -585,11 +585,11 @@ export function registerTodoistTools(api: OpenClawPluginApi): void {
         const args: Record<string, unknown> = {};
         if (content !== undefined) args['content'] = content;
         if (description !== undefined) args['description'] = description;
-        if (dueString !== undefined) args['dueString'] = dueString || null;
+        if (dueString !== undefined) args['dueString'] = dueString;
         if (priority !== undefined) args['priority'] = priority;
         if (labels !== undefined) args['labels'] = labels;
-        if (assigneeId !== undefined) args['assigneeId'] = assigneeId || null;
-        if (deadlineDate !== undefined) args['deadlineDate'] = deadlineDate || null;
+        if (assigneeId !== undefined) args['assigneeId'] = assigneeId;
+        if (deadlineDate !== undefined) args['deadlineDate'] = deadlineDate;
         const task = await todoistApi.updateTask(taskId, args as Parameters<typeof todoistApi.updateTask>[1]);
         return successResult([task], '');
       } catch (error: unknown) {
@@ -684,13 +684,13 @@ export function registerTodoistTools(api: OpenClawPluginApi): void {
       const name = readRequiredString(params, 'name');
       const parentId = readOptionalString(params, 'parentId');
       const color = readOptionalString(params, 'color');
-      const isFavorite = readOptionalBoolean(params, 'isFavorite');
+      const isFavorite = readOptionalBooleanValue(params, 'isFavorite');
       try {
         const todoistApi = createApi(token);
         const args: Record<string, unknown> = { name };
-        if (parentId) args['parentId'] = parentId;
-        if (color) args['color'] = color;
-        if (isFavorite) args['isFavorite'] = isFavorite;
+        if (parentId !== undefined) args['parentId'] = parentId;
+        if (color !== undefined) args['color'] = color;
+        if (isFavorite !== undefined) args['isFavorite'] = isFavorite;
         const project = await todoistApi.addProject(args as Parameters<typeof todoistApi.addProject>[0]);
         return successResult([project], '');
       } catch (error: unknown) {
@@ -710,12 +710,12 @@ export function registerTodoistTools(api: OpenClawPluginApi): void {
       const projectId = readRequiredString(params, 'projectId');
       const name = readOptionalString(params, 'name');
       const color = readOptionalString(params, 'color');
-      const isFavorite = readOptionalBoolean(params, 'isFavorite') || undefined;
+      const isFavorite = readOptionalBooleanValue(params, 'isFavorite');
       try {
         const todoistApi = createApi(token);
         const args: Record<string, unknown> = {};
-        if (name) args['name'] = name;
-        if (color) args['color'] = color;
+        if (name !== undefined) args['name'] = name;
+        if (color !== undefined) args['color'] = color;
         if (isFavorite !== undefined) args['isFavorite'] = isFavorite;
         const project = await todoistApi.updateProject(projectId, args as Parameters<typeof todoistApi.updateProject>[1]);
         return successResult([project], '');
@@ -854,12 +854,12 @@ export function registerTodoistTools(api: OpenClawPluginApi): void {
       if (!token) return authErrorResult('todoist_add_label');
       const name = readRequiredString(params, 'name');
       const color = readOptionalString(params, 'color');
-      const isFavorite = readOptionalBoolean(params, 'isFavorite');
+      const isFavorite = readOptionalBooleanValue(params, 'isFavorite');
       try {
         const todoistApi = createApi(token);
         const args: Record<string, unknown> = { name };
-        if (color) args['color'] = color;
-        if (isFavorite) args['isFavorite'] = isFavorite;
+        if (color !== undefined) args['color'] = color;
+        if (isFavorite !== undefined) args['isFavorite'] = isFavorite;
         const label = await todoistApi.addLabel(args as Parameters<typeof todoistApi.addLabel>[0]);
         return successResult([label], '');
       } catch (error: unknown) {
@@ -879,12 +879,12 @@ export function registerTodoistTools(api: OpenClawPluginApi): void {
       const labelId = readRequiredString(params, 'labelId');
       const name = readOptionalString(params, 'name');
       const color = readOptionalString(params, 'color');
-      const isFavorite = readOptionalBoolean(params, 'isFavorite') || undefined;
+      const isFavorite = readOptionalBooleanValue(params, 'isFavorite');
       try {
         const todoistApi = createApi(token);
         const args: Record<string, unknown> = {};
-        if (name) args['name'] = name;
-        if (color) args['color'] = color;
+        if (name !== undefined) args['name'] = name;
+        if (color !== undefined) args['color'] = color;
         if (isFavorite !== undefined) args['isFavorite'] = isFavorite;
         const label = await todoistApi.updateLabel(labelId, args as Parameters<typeof todoistApi.updateLabel>[1]);
         return successResult([label], '');
@@ -1048,6 +1048,13 @@ function readOptionalString(params: unknown, key: string): string | undefined {
 
 function readOptionalBoolean(params: unknown, key: string): boolean {
   return isRecord(params) && params[key] === true;
+}
+
+function readOptionalBooleanValue(params: unknown, key: string): boolean | undefined {
+  if (!isRecord(params)) return undefined;
+  const value = params[key];
+  if (typeof value === 'boolean') return value;
+  return undefined;
 }
 
 function readOptionalNumber(params: unknown, key: string): number | undefined {
