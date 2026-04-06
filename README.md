@@ -61,13 +61,35 @@ The plugin id stays `todoist`.
 | `todoist_inbox` | List inbox tasks |
 | `todoist_add_task` | Add a task with Todoist natural language quick-add syntax |
 | `todoist_complete_task` | Complete a task by id, URL, or name |
+| `todoist_get_task` | Retrieve a single task by id |
+| `todoist_get_tasks` | List tasks filtered by project, section, parent, or label |
+| `todoist_update_task` | Update a task (content, due date, priority, labels, etc.) |
+| `todoist_delete_task` | Permanently delete a task |
+| `todoist_reopen_task` | Reopen (uncomplete) a task |
+| `todoist_move_task` | Move a task to a different project, section, or parent |
 | `todoist_list_projects` | List projects |
+| `todoist_add_project` | Create a new project |
+| `todoist_update_project` | Update a project |
+| `todoist_delete_project` | Permanently delete a project and all its tasks |
+| `todoist_list_sections` | List sections, optionally filtered by project |
+| `todoist_add_section` | Create a new section inside a project |
+| `todoist_update_section` | Rename a section |
+| `todoist_delete_section` | Delete a section and its tasks |
+| `todoist_list_labels` | List all personal labels |
+| `todoist_add_label` | Create a new personal label |
+| `todoist_update_label` | Update a personal label |
+| `todoist_delete_label` | Delete a personal label |
+| `todoist_get_comments` | Get comments for a task or project |
+| `todoist_add_comment` | Add a comment to a task or project |
 
 Notes:
 
 - `todoist_add_task` accepts natural language text (e.g. `"Buy groceries tomorrow #Work"`) via the Todoist quick-add API
 - `todoist_complete_task` accepts a task id (numeric), a Todoist task URL, or a task name; prefer ids or URLs when available
 - `todoist_today` accepts an optional `workspace` (filter by workspace name) and `personal` (personal tasks only) parameter
+- `todoist_update_task` accepts `dueString: "no date"` to clear a task's due date
+- `todoist_move_task` requires exactly one of `projectId`, `sectionId`, or `parentId`
+- `todoist_get_comments` and `todoist_add_comment` require either `taskId` or `projectId`
 
 ## CLI command
 
